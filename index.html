@@ -357,15 +357,14 @@ function HourRow({ hour, appts, onApptClick, onAdd }) {
       </div>
       {/* Content */}
       <div style={{flex:1,borderTop:'1px solid #181818',paddingTop:'8px',paddingBottom:'8px',minHeight:'48px'}}>
-        {list.length > 0
-          ? list.map(a=><ApptCard key={a.id} a={a} onClick={onApptClick}/>)
-          : <div className="hour-tap" onClick={()=>onAdd(label)}
-              style={{height:'30px',borderRadius:'6px',display:'flex',alignItems:'center',
-                paddingRight:'8px',cursor:'pointer',transition:'background .15s',
-              }}>
-              <span style={{color:'#252525',fontSize:'18px',fontWeight:300,lineHeight:1}}>+</span>
-            </div>
-        }
+        {list.map(a=><ApptCard key={a.id} a={a} onClick={onApptClick}/>)}
+        <div className="hour-tap" onClick={()=>onAdd(label)}
+          style={{height:'30px',borderRadius:'6px',display:'flex',alignItems:'center',
+            paddingRight:'8px',cursor:'pointer',transition:'background .15s',
+            marginTop: list.length > 0 ? '4px' : '0',
+          }}>
+          <span style={{color:'#252525',fontSize:'18px',fontWeight:300,lineHeight:1}}>+</span>
+        </div>
       </div>
     </div>
   );
@@ -743,13 +742,15 @@ function App() {
       return;
     }
 
-    /* Firebase: מאזין לשינויים בזמן אמת */
+    /* Firebase: מאזין לשינויים בזמן אמת — מיון בצד הלקוח כדי להימנע מ-composite index */
     const unsub = db.collection('appointments')
       .where('date','==',ds)
-      .orderBy('time','asc')
       .onSnapshot(
         snap => {
-          setAppts(snap.docs.map(d=>({id:d.id,...d.data()})));
+          const sorted = snap.docs
+            .map(d=>({id:d.id,...d.data()}))
+            .sort((a,b)=>a.time.localeCompare(b.time));
+          setAppts(sorted);
           setLoading(false);
           setFsError(null);
         },
