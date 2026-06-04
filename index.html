@@ -118,6 +118,13 @@ const svc    = id => SERVICES.find(s=>s.id===id) || SERVICES[0];
 const addMin = (t,m) => { const [h,mn]=t.split(':').map(Number),tot=h*60+mn+m; return `${String(Math.floor(tot/60)).padStart(2,'0')}:${String(tot%60).padStart(2,'0')}`; };
 const heDate = d => ({ day: HE_DAYS[d.getDay()], label:`${d.getDate()} ${HE_MONTHS[d.getMonth()]} ${d.getFullYear()}` });
 
+/* timeout ל-Firebase — אם לא עונה תוך 8 שניות, זורק שגיאה ברורה */
+const fsOp = (promise) => Promise.race([
+  promise,
+  new Promise((_,reject) => setTimeout(() =>
+    reject(new Error('Firebase לא מגיב — ודא שה-Firestore Database הופעל בפרויקט דביר-barber בכתובת console.firebase.google.com')), 8000))
+]);
+
 /* ═══════════════════════════════════════════════════════════
    SVG ICONS
    ═══════════════════════════════════════════════════════════ */
@@ -766,7 +773,7 @@ function App() {
     }
 
     try {
-      const snap = await db.collection('appointments').where('date','==',ds).get();
+      const snap = await fsOp(db.collection('appointments').where('date','==',ds).get());
       const sorted = snap.docs
         .map(d => ({id:d.id,...d.data()}))
         .sort((a,b) => a.time.localeCompare(b.time));
@@ -836,12 +843,12 @@ function App() {
       } else if (!db) {
         setSaveError('Firebase לא מחובר — נסה לרענן את הדף');
       } else if (editId) {
-        await db.collection('appointments').doc(editId).update(data);
+        await fsOp(db.collection('appointments').doc(editId).update(data));
         addName(data.name); savePrice(data.name, data.price);
         setShowForm(false);
         await loadAppts(toStr(date));
       } else {
-        await db.collection('appointments').add({...data, createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+        await fsOp(db.collection('appointments').add({...data, createdAt:firebase.firestore.FieldValue.serverTimestamp()}));
         addName(data.name); savePrice(data.name, data.price);
         setShowForm(false);
         await loadAppts(toStr(date));
@@ -862,7 +869,7 @@ function App() {
         demoStore.current[ds] = (demoStore.current[ds]||[]).filter(a=>a.id!==selected.id);
         setAppts([...demoStore.current[ds]]);
       } else {
-        await db.collection('appointments').doc(selected.id).delete();
+        await fsOp(db.collection('appointments').doc(selected.id).delete());
         await loadAppts(toStr(date));
       }
       setSelected(null); setShowDel(false);
