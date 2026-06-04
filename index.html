@@ -87,10 +87,13 @@ try {
    CONSTANTS
    ═══════════════════════════════════════════════════════════ */
 const SERVICES = [
-  { id:'haircut',   label:'תספורת',       color:'#60A5FA', bg:'rgba(96,165,250,.13)',  defaultDuration:20 },
-  { id:'hairbeard', label:'תספורת + זקן', color:'#C084FC', bg:'rgba(192,132,252,.13)', defaultDuration:30 },
-  { id:'soldier',   label:'חייל',         color:'#34D399', bg:'rgba(52,211,153,.13)',  defaultDuration:20 },
-  { id:'kids',      label:'ילדים',        color:'#FBBF24', bg:'rgba(251,191,36,.13)',  defaultDuration:20 },
+  { id:'haircut',      label:'תספורת',             color:'#60A5FA', bg:'rgba(96,165,250,.13)',  defaultDuration:20, defaultPrice:null },
+  { id:'hairbeard',    label:'תספורת + זקן',       color:'#C084FC', bg:'rgba(192,132,252,.13)', defaultDuration:30, defaultPrice:70   },
+  { id:'soldier',      label:'חייל',               color:'#34D399', bg:'rgba(52,211,153,.13)',  defaultDuration:20, defaultPrice:60   },
+  { id:'kids',         label:'ילדים',              color:'#FBBF24', bg:'rgba(251,191,36,.13)',  defaultDuration:20, defaultPrice:null },
+  { id:'friend',       label:'תספורת חבר',         color:'#F87171', bg:'rgba(248,113,113,.13)', defaultDuration:20, defaultPrice:50   },
+  { id:'family',       label:'תספורת משפחה',       color:'#FB923C', bg:'rgba(251,146,60,.13)',  defaultDuration:20, defaultPrice:45   },
+  { id:'hairbeardwax', label:'תספורת + זקן + שעווה', color:'#A78BFA', bg:'rgba(167,139,250,.13)', defaultDuration:30, defaultPrice:60 },
 ];
 const DURATIONS = [15, 20, 30, 40, 60];
 
@@ -526,7 +529,12 @@ function ApptForm({ data, set, onSave, onCancel, isEdit, saving, savedNames, cus
   const chg = (k,v) => {
     if (k === 'service') {
       const s = SERVICES.find(s=>s.id===v);
-      set(p=>({...p, service:v, duration: s ? s.defaultDuration : p.duration }));
+      set(p=>({
+        ...p,
+        service: v,
+        duration: s ? s.defaultDuration : p.duration,
+        price: s && s.defaultPrice != null ? String(s.defaultPrice) : p.price,
+      }));
     } else {
       set(p=>({...p,[k]:v}));
     }
@@ -605,14 +613,24 @@ function ApptForm({ data, set, onSave, onCancel, isEdit, saving, savedNames, cus
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
           {SERVICES.map(s=>{
             const on=data.service===s.id;
-            return <button key={s.id} onClick={()=>chg('service',s.id)} style={{
-              borderRadius:'10px',padding:'13px',fontSize:'14px',
-              fontWeight:on?600:400,
-              background:on?s.bg:'#1a1a1a',
-              color:on?s.color:'#9CA3AF',
-              border:`1px solid ${on?s.color+'55':'#252525'}`,
-              cursor:'pointer',transition:'all .15s',
-            }}>{s.label}</button>;
+            return (
+              <button key={s.id} onClick={()=>chg('service',s.id)} style={{
+                borderRadius:'10px', padding:'10px 8px', fontSize:'13px',
+                fontWeight:on?600:400,
+                background:on?s.bg:'#1a1a1a',
+                color:on?s.color:'#9CA3AF',
+                border:`1px solid ${on?s.color+'55':'#252525'}`,
+                cursor:'pointer', transition:'all .15s',
+                display:'flex', flexDirection:'column', alignItems:'center', gap:'2px',
+              }}>
+                <span>{s.label}</span>
+                {s.defaultPrice != null && (
+                  <span style={{fontSize:'11px', opacity: on ? 1 : 0.5, fontWeight:700}}>
+                    ₪{s.defaultPrice}
+                  </span>
+                )}
+              </button>
+            );
           })}
         </div>
       </div>
