@@ -118,6 +118,21 @@ const svc    = id => SERVICES.find(s=>s.id===id) || SERVICES[0];
 const addMin = (t,m) => { const [h,mn]=t.split(':').map(Number),tot=h*60+mn+m; return `${String(Math.floor(tot/60)).padStart(2,'0')}:${String(tot%60).padStart(2,'0')}`; };
 const heDate = d => ({ day: HE_DAYS[d.getDay()], label:`${d.getDate()} ${HE_MONTHS[d.getMonth()]} ${d.getFullYear()}` });
 
+/* מחזיר Set של שעות תפוסות לפי תורים קיימים (כל פרק זמן של 20 דק שחופף לתור) */
+const getBlockedSlots = (appts, excludeId = null) => {
+  const blocked = new Set();
+  appts.forEach(a => {
+    if (a.id === excludeId) return;
+    const [h, m] = a.time.split(':').map(Number);
+    const start = h * 60 + m;
+    const end   = start + (a.duration || 20);
+    for (let t = start; t < end; t += 20) {
+      blocked.add(`${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`);
+    }
+  });
+  return blocked;
+};
+
 /* timeout ל-Firebase — אם לא עונה תוך 8 שניות, זורק שגיאה ברורה */
 const fsOp = (promise) => Promise.race([
   promise,
@@ -529,7 +544,7 @@ function NameInput({ value, onChange, onSelect, savedNames, customerPrices, auto
   );
 }
 
-function ApptForm({ data, set, onSave, onCancel, isEdit, saving, savedNames, customerPrices, saveError }) {
+function ApptForm({ data, set, onSave, onCancel, isEdit, saving, savedNames, customerPrices, saveError, blockedSlots }) {
   const prices = customerPrices || {};
 
   const chg = (k,v) => {
@@ -581,7 +596,7 @@ function ApptForm({ data, set, onSave, onCancel, isEdit, saving, savedNames, cus
               backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B7280' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E\")",
               backgroundRepeat:'no-repeat', backgroundPosition:'left 14px center', paddingLeft:'38px',
             }}>
-            {SLOTS.map(t=><option key={t} value={t}>{t}</option>)}
+            {SLOTS.filter(t => !blockedSlots?.has(t) || t === data.time).map(t=><option key={t} value={t}>{t}</option>)}
           </select>
         </div>
         <div style={{width:'110px'}}>
@@ -983,7 +998,7 @@ function App() {
       </Sheet>
 
       <Sheet open={showForm} onClose={()=>{setShowForm(false);setSaveError(null);}}>
-        <ApptForm data={form} set={setForm} onSave={save} onCancel={()=>{setShowForm(false);setSaveError(null);}} isEdit={!!editId} saving={saving} savedNames={savedNames} customerPrices={customerPrices} saveError={saveError} />
+        <ApptForm data={form} set={setForm} onSave={save} onCancel={()=>{setShowForm(false);setSaveError(null);}} isEdit={!!editId} saving={saving} savedNames={savedNames} customerPrices={customerPrices} saveError={saveError} blockedSlots={getBlockedSlots(appts, editId)} />
       </Sheet>
     </div>
   );
