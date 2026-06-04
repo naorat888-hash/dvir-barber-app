@@ -87,17 +87,18 @@ try {
    CONSTANTS
    ═══════════════════════════════════════════════════════════ */
 const SERVICES = [
-  { id:'haircut', label:'תספורת', color:'#60A5FA', bg:'rgba(96,165,250,.13)'  },
-  { id:'beard',   label:'זקן',    color:'#34D399', bg:'rgba(52,211,153,.13)'  },
-  { id:'both',    label:'שניהם',  color:'#C084FC', bg:'rgba(192,132,252,.13)' },
-  { id:'kids',    label:'ילדים',  color:'#FBBF24', bg:'rgba(251,191,36,.13)'  },
+  { id:'haircut',   label:'תספורת',       color:'#60A5FA', bg:'rgba(96,165,250,.13)',  defaultDuration:20 },
+  { id:'hairbeard', label:'תספורת + זקן', color:'#C084FC', bg:'rgba(192,132,252,.13)', defaultDuration:30 },
+  { id:'soldier',   label:'חייל',         color:'#34D399', bg:'rgba(52,211,153,.13)',  defaultDuration:20 },
+  { id:'kids',      label:'ילדים',        color:'#FBBF24', bg:'rgba(251,191,36,.13)',  defaultDuration:20 },
 ];
-const DURATIONS = [30, 45, 60, 90];
+const DURATIONS = [15, 20, 30, 40, 60];
 
 const SLOTS = [];
 for (let h=8; h<20; h++) {
   SLOTS.push(`${String(h).padStart(2,'0')}:00`);
-  SLOTS.push(`${String(h).padStart(2,'0')}:30`);
+  SLOTS.push(`${String(h).padStart(2,'0')}:20`);
+  SLOTS.push(`${String(h).padStart(2,'0')}:40`);
 }
 
 const HOURS = Array.from({length:12},(_,i)=>i+8);
@@ -166,41 +167,55 @@ function Handle() {
    LOGO HERO (top of app, non-sticky)
    ═══════════════════════════════════════════════════════════ */
 function LogoHero() {
+  const [imgOk, setImgOk] = React.useState(true);
   return (
     <div style={{
-      background:'linear-gradient(180deg,#000 0%,#0a0a0a 100%)',
+      background:'#000',
       display:'flex', flexDirection:'column', alignItems:'center',
-      padding:'20px 20px 12px',
+      padding:'16px 20px 10px',
       borderBottom:'1px solid #1a1a1a',
     }}>
-      {/* Logo image - save your logo as logo.png in the same folder */}
-      <img
-        src="logo.png"
-        alt="Dvir Yichia Barber Shop"
-        style={{
-          height:'140px',
-          width:'auto',
-          objectFit:'contain',
-          // The logo has a black bg — blends seamlessly with our dark app
-          filter:'drop-shadow(0 0 18px rgba(202,138,4,0.25))',
-        }}
-        onError={e => { e.target.style.display='none'; }}
-      />
-      {/* Fallback text if image not found */}
-      <div id="logo-fallback" style={{
-        display:'none', // shown via JS if image fails
-        textAlign:'center',
-        lineHeight:1.1,
-      }}>
-        <div style={{fontSize:'28px',fontWeight:700,letterSpacing:'2px',color:'#CA8A04',marginBottom:'2px'}}>DVIR YICHIA</div>
-        <div style={{fontSize:'12px',fontWeight:400,letterSpacing:'4px',color:'#9CA3AF',textTransform:'uppercase'}}>Barber Shop</div>
-      </div>
+      {/* תמונת הלוגו — אם לא נמצאת, מוצג עיצוב טקסטואלי */}
+      {imgOk ? (
+        <img
+          src="logo.png"
+          alt="Dvir Yichia Barber Shop"
+          style={{ height:'150px', width:'auto', objectFit:'contain',
+            filter:'drop-shadow(0 0 20px rgba(202,138,4,0.3))' }}
+          onError={() => setImgOk(false)}
+        />
+      ) : (
+        /* Fallback עיצובי כשאין קובץ logo.png */
+        <div style={{ textAlign:'center', padding:'10px 0' }}>
+          {/* ציור ספר SVG */}
+          <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style={{marginBottom:'8px'}}>
+            <circle cx="32" cy="20" r="14" fill="none" stroke="#CA8A04" strokeWidth="1.5"/>
+            <path d="M22 20 Q32 10 42 20 Q32 30 22 20Z" fill="#CA8A04" opacity=".3"/>
+            <circle cx="28" cy="18" r="2" fill="#CA8A04"/>
+            <path d="M26 26 Q32 32 38 26" stroke="#CA8A04" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+            <path d="M18 42 L46 42" stroke="#CA8A04" strokeWidth="1.5" strokeLinecap="round"/>
+            <path d="M14 48 Q32 44 50 48" stroke="#CA8A04" strokeWidth="1" fill="none" strokeLinecap="round"/>
+            {/* scissors */}
+            <circle cx="10" cy="52" r="3" fill="none" stroke="#CA8A04" strokeWidth="1.2"/>
+            <circle cx="10" cy="58" r="3" fill="none" stroke="#CA8A04" strokeWidth="1.2"/>
+            <line x1="13" y1="50" x2="22" y2="44" stroke="#CA8A04" strokeWidth="1.2" strokeLinecap="round"/>
+            <line x1="13" y1="60" x2="22" y2="44" stroke="#CA8A04" strokeWidth="1.2" strokeLinecap="round"/>
+          </svg>
+          <div style={{
+            fontSize:'26px', fontWeight:700, letterSpacing:'3px',
+            color:'#CA8A04', marginBottom:'2px', textTransform:'uppercase',
+          }}>Dvir Yichia</div>
+          <div style={{
+            fontSize:'11px', fontWeight:400, letterSpacing:'5px',
+            color:'#6B7280', textTransform:'uppercase',
+          }}>Barber Shop</div>
+        </div>
+      )}
 
-      {/* Gold divider */}
+      {/* קו זהוב */}
       <div style={{
-        width:'60px',height:'2px',
+        width:'50px', height:'1.5px', marginTop:'8px',
         background:'linear-gradient(90deg,transparent,#CA8A04,transparent)',
-        marginTop:'10px',
       }}/>
     </div>
   );
@@ -427,7 +442,14 @@ const IN = {
 const LBL = { color:'#6B7280', fontSize:'13px', fontWeight:500, marginBottom:'7px', display:'block' };
 
 function ApptForm({ data, set, onSave, onCancel, isEdit, saving }) {
-  const chg = (k,v) => set(p=>({...p,[k]:v}));
+  const chg = (k,v) => {
+    if (k === 'service') {
+      const s = SERVICES.find(s=>s.id===v);
+      set(p=>({...p, service:v, duration: s ? s.defaultDuration : p.duration }));
+    } else {
+      set(p=>({...p,[k]:v}));
+    }
+  };
   return (
     <>
       <Handle />
@@ -515,7 +537,7 @@ function ApptForm({ data, set, onSave, onCancel, isEdit, saving }) {
 /* ═══════════════════════════════════════════════════════════
    APP
    ═══════════════════════════════════════════════════════════ */
-const EMPTY = { name:'', time:'08:00', duration:30, service:'haircut', note:'' };
+const EMPTY = { name:'', time:'08:00', duration:20, service:'haircut', note:'' }; // ברירת מחדל: תספורת 20 דק'
 
 function App() {
   const [date,    setDate]    = useState(new Date());
