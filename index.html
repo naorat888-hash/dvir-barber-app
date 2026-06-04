@@ -152,8 +152,8 @@ function Sheet({ open, onClose, children }) {
         style={{position:'absolute',inset:0,background:'rgba(0,0,0,.75)',backdropFilter:'blur(4px)'}} />
       <div className="sheet-in"
         style={{position:'relative',background:'#161616',borderRadius:'22px 22px 0 0',
-          padding:'14px 20px calc(env(safe-area-inset-bottom,0px) + 28px)',
-          maxHeight:'92vh',overflowY:'auto',zIndex:1}}>
+          padding:'14px 20px 0',
+          maxHeight:'92dvh',overflowY:'auto',zIndex:1}}>
         {children}
       </div>
     </div>
@@ -642,24 +642,30 @@ function ApptForm({ data, set, onSave, onCancel, isEdit, saving, savedNames, cus
           style={{...IN,resize:'none',lineHeight:'1.6'}} />
       </div>
 
-      {/* שגיאת שמירה */}
-      {saveError && (
-        <div style={{background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.25)',
-          borderRadius:'10px',padding:'10px 14px',marginBottom:'12px',
-          color:'#EF4444',fontSize:'13px',lineHeight:'1.5'}}>
-          ⚠ {saveError}
-        </div>
-      )}
-
-      {/* Save */}
-      <button onClick={onSave} disabled={!data.name.trim()||saving} style={{
-        width:'100%',borderRadius:'14px',padding:'16px',fontSize:'16px',
-        fontWeight:700,border:'none',
-        background:data.name.trim()&&!saving?'#CA8A04':'#1e1e1e',
-        color:data.name.trim()&&!saving?'#0a0a0a':'#333',
-        cursor:data.name.trim()?'pointer':'not-allowed',
-        transition:'all .2s',
-      }}>{saving?'שומר...':(isEdit?'שמירת שינויים':'+ הוסף תור')}</button>
+      {/* כפתור שמירה — sticky תמיד גלוי בתחתית */}
+      <div style={{
+        position:'sticky', bottom:0,
+        background:'#161616',
+        margin:'0 -20px',
+        padding:'10px 20px calc(env(safe-area-inset-bottom,0px) + 16px)',
+        borderTop:'1px solid #222',
+      }}>
+        {saveError && (
+          <div style={{background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.25)',
+            borderRadius:'10px',padding:'9px 14px',marginBottom:'10px',
+            color:'#EF4444',fontSize:'13px',lineHeight:'1.5'}}>
+            ⚠ {saveError}
+          </div>
+        )}
+        <button onClick={onSave} disabled={saving} style={{
+          width:'100%',borderRadius:'14px',padding:'16px',fontSize:'16px',
+          fontWeight:700,border:'none',
+          background: saving ? '#1e1e1e' : '#CA8A04',
+          color: saving ? '#333' : '#0a0a0a',
+          cursor: saving ? 'not-allowed' : 'pointer',
+          transition:'all .2s',
+        }}>{saving ? 'שומר...' : (isEdit ? 'שמירת שינויים' : '+ הוסף תור')}</button>
+      </div>
     </>
   );
 }
