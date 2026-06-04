@@ -522,7 +522,7 @@ function NameInput({ value, onChange, onSelect, savedNames, customerPrices, auto
   );
 }
 
-function ApptForm({ data, set, onSave, onCancel, isEdit, saving, savedNames, customerPrices }) {
+function ApptForm({ data, set, onSave, onCancel, isEdit, saving, savedNames, customerPrices, saveError }) {
   const prices = customerPrices || {};
 
   const chg = (k,v) => {
@@ -642,6 +642,15 @@ function ApptForm({ data, set, onSave, onCancel, isEdit, saving, savedNames, cus
           style={{...IN,resize:'none',lineHeight:'1.6'}} />
       </div>
 
+      {/* שגיאת שמירה */}
+      {saveError && (
+        <div style={{background:'rgba(239,68,68,.1)',border:'1px solid rgba(239,68,68,.25)',
+          borderRadius:'10px',padding:'10px 14px',marginBottom:'12px',
+          color:'#EF4444',fontSize:'13px',lineHeight:'1.5'}}>
+          ⚠ {saveError}
+        </div>
+      )}
+
       {/* Save */}
       <button onClick={onSave} disabled={!data.name.trim()||saving} style={{
         width:'100%',borderRadius:'14px',padding:'16px',fontSize:'16px',
@@ -671,8 +680,9 @@ function App() {
   const [showDel,  setShowDel]  = useState(false);
   const [saving,   setSaving]   = useState(false);
   const [form,     setForm]     = useState(EMPTY);
-  const [fsError,  setFsError]  = useState(null);
-  const [fsConnected, setFsConnected] = useState(null);
+  const [fsError,    setFsError]    = useState(null);
+  const [fsConnected,setFsConnected] = useState(null);
+  const [saveError,  setSaveError]  = useState(null);
 
   /* זיכרון תורים לפי תאריך (מונע מחיקה בניווט בין ימים במצב הדגמה) */
   const demoStore = useRef({});
@@ -796,6 +806,7 @@ function App() {
   /* ── Save ── */
   const save = async () => {
     if (!form.name.trim()) return;
+    setSaveError(null);
     setSaving(true);
     const priceNum = form.price !== '' ? Number(form.price) : null;
     const data = {
@@ -816,6 +827,8 @@ function App() {
         setAppts([...demoStore.current[ds]]);
         addName(data.name); savePrice(data.name, data.price);
         setShowForm(false);
+      } else if (!db) {
+        setSaveError('Firebase לא מחובר — נסה לרענן את הדף');
       } else if (editId) {
         await db.collection('appointments').doc(editId).update(data);
         addName(data.name); savePrice(data.name, data.price);
@@ -827,7 +840,9 @@ function App() {
         setShowForm(false);
         await loadAppts(toStr(date));
       }
-    } catch(e) { alert('שגיאה בשמירה: ' + e.message); }
+    } catch(e) {
+      setSaveError('שגיאה בשמירה: ' + e.message);
+    }
     setSaving(false);
   };
 
@@ -954,8 +969,8 @@ function App() {
         <DeleteConfirm name={selected?.name} onConfirm={del} onCancel={()=>setShowDel(false)} saving={saving} />
       </Sheet>
 
-      <Sheet open={showForm} onClose={()=>setShowForm(false)}>
-        <ApptForm data={form} set={setForm} onSave={save} onCancel={()=>setShowForm(false)} isEdit={!!editId} saving={saving} savedNames={savedNames} customerPrices={customerPrices} />
+      <Sheet open={showForm} onClose={()=>{setShowForm(false);setSaveError(null);}}>
+        <ApptForm data={form} set={setForm} onSave={save} onCancel={()=>{setShowForm(false);setSaveError(null);}} isEdit={!!editId} saving={saving} savedNames={savedNames} customerPrices={customerPrices} saveError={saveError} />
       </Sheet>
     </div>
   );
