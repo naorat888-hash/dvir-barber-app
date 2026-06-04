@@ -606,6 +606,10 @@ function App() {
   const [showDel,  setShowDel]  = useState(false);
   const [saving,   setSaving]   = useState(false);
   const [form,     setForm]     = useState(EMPTY);
+  const [fsError,  setFsError]  = useState(null);
+
+  /* זיכרון תורים לפי תאריך (מונע מחיקה בניווט בין ימים במצב הדגמה) */
+  const demoStore = useRef({});
 
   /* ── Names for autocomplete (localStorage + Firestore) ── */
   const [savedNames, setSavedNames] = useState(() => {
@@ -643,20 +647,40 @@ function App() {
   /* ── Load appointments ── */
   useEffect(() => {
     setLoading(true);
+    setFsError(null);
     const ds = toStr(date);
 
     if (DEMO_MODE) {
-      setAppts(isToday(date) ? makeDemoAppts(ds) : []);
+      /* מצב הדגמה: שומר תורים בזיכרון לפי תאריך — לא נמחק בניווט */
+      if (!demoStore.current[ds]) {
+        demoStore.current[ds] = isToday(date) ? makeDemoAppts(ds) : [];
+      }
+      setAppts(demoStore.current[ds]);
       setLoading(false);
       return;
     }
 
+    /* Firebase: מאזין לשינויים בזמן אמת */
     const unsub = db.collection('appointments')
       .where('date','==',ds)
       .orderBy('time','asc')
       .onSnapshot(
-        snap => { setAppts(snap.docs.map(d=>({id:d.id,...d.data()}))); setLoading(false); },
-        err  => { console.error(err); setLoading(false); }
+        snap => {
+          setAppts(snap.docs.map(d=>({id:d.id,...d.data()})));
+          setLoading(false);
+          setFsError(null);
+        },
+        err => {
+          console.error('Firestore error:', err);
+          setLoading(false);
+          if (err.code === 'failed-precondition') {
+            setFsError('חסר Index ב-Firestore — פתח את הקונסול ולחץ על הקישור ליצירת Index');
+          } else if (err.code === 'permission-denied') {
+            setFsError('אין הרשאה — בדוק את חוקי ה-Firestore');
+          } else {
+            setFsError('שגיאת חיבור: ' + err.message);
+          }
+        }
       );
     return unsub;
   }, [date]);
@@ -693,10 +717,14 @@ function App() {
     };
     try {
       if (DEMO_MODE) {
-        setAppts(p => editId
-          ? p.map(a=>a.id===editId?{...a,...data}:a)
-          : [...p,{...data,id:'demo_'+Date.now()}]
-        );
+        const ds = toStr(date);
+        if (!demoStore.current[ds]) demoStore.current[ds] = [];
+        if (editId) {
+          demoStore.current[ds] = demoStore.current[ds].map(a=>a.id===editId?{...a,...data}:a);
+        } else {
+          demoStore.current[ds] = [...demoStore.current[ds], {...data, id:'demo_'+Date.now()}];
+        }
+        setAppts([...demoStore.current[ds]]);
         addName(data.name);
         setShowForm(false);
       } else if (editId) {
@@ -718,7 +746,9 @@ function App() {
     setSaving(true);
     try {
       if (DEMO_MODE) {
-        setAppts(p=>p.filter(a=>a.id!==selected.id));
+        const ds = toStr(date);
+        demoStore.current[ds] = (demoStore.current[ds]||[]).filter(a=>a.id!==selected.id);
+        setAppts([...demoStore.current[ds]]);
       } else {
         await db.collection('appointments').doc(selected.id).delete();
       }
@@ -749,6 +779,15 @@ function App() {
           <span style={{color:'#CA8A04',fontSize:'12px',lineHeight:'1.5'}}>
             מצב הדגמה — חבר Firebase לשמירת נתונים בענן
           </span>
+        </div>
+      )}
+
+      {/* ── Firestore error banner ── */}
+      {fsError && (
+        <div style={{background:'rgba(239,68,68,.1)',borderBottom:'1px solid rgba(239,68,68,.2)',
+          padding:'10px 16px',display:'flex',gap:'10px',alignItems:'flex-start'}}>
+          <span style={{color:'#EF4444',flexShrink:0,marginTop:'1px'}}>⚠</span>
+          <span style={{color:'#EF4444',fontSize:'12px',lineHeight:'1.6'}}>{fsError}</span>
         </div>
       )}
 
