@@ -441,7 +441,64 @@ const IN = {
 };
 const LBL = { color:'#6B7280', fontSize:'13px', fontWeight:500, marginBottom:'7px', display:'block' };
 
-function ApptForm({ data, set, onSave, onCancel, isEdit, saving }) {
+/* ── Autocomplete name input ── */
+function NameInput({ value, onChange, savedNames, autoFocus }) {
+  const [sugg, setSugg] = useState([]);
+  const [open, setOpen] = useState(false);
+
+  const handle = v => {
+    onChange(v);
+    if (v.trim().length > 0) {
+      const q = v.trim().toLowerCase();
+      const filtered = savedNames
+        .filter(n => n.toLowerCase().includes(q))
+        .sort((a,b) => a.toLowerCase().startsWith(q) ? -1 : 1)
+        .slice(0, 6);
+      setSugg(filtered);
+      setOpen(filtered.length > 0);
+    } else {
+      setSugg([]); setOpen(false);
+    }
+  };
+
+  return (
+    <div style={{position:'relative'}}>
+      <input
+        type="text" placeholder="הכנס שם לקוח..." value={value}
+        onChange={e=>handle(e.target.value)}
+        onFocus={() => { if(sugg.length>0) setOpen(true); }}
+        onBlur={() => setTimeout(()=>setOpen(false), 150)}
+        style={IN} autoFocus={autoFocus}
+      />
+      {open && (
+        <div style={{
+          position:'absolute', top:'100%', right:0, left:0, zIndex:500,
+          background:'#1e1e1e', border:'1px solid #2e2e2e',
+          borderTop:'none', borderRadius:'0 0 12px 12px',
+          overflow:'hidden', boxShadow:'0 8px 24px rgba(0,0,0,.5)',
+        }}>
+          {sugg.map((name,i) => (
+            <div key={name}
+              onMouseDown={e=>{e.preventDefault(); onChange(name); setOpen(false);}}
+              onTouchStart={()=>{ onChange(name); setOpen(false); }}
+              style={{
+                padding:'13px 16px', cursor:'pointer', fontSize:'15px',
+                borderBottom: i<sugg.length-1 ? '1px solid #252525' : 'none',
+                display:'flex', alignItems:'center', gap:'10px',
+              }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#CA8A04" strokeWidth="2" strokeLinecap="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
+              <span>{name}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ApptForm({ data, set, onSave, onCancel, isEdit, saving, savedNames }) {
   const chg = (k,v) => {
     if (k === 'service') {
       const s = SERVICES.find(s=>s.id===v);
@@ -458,11 +515,10 @@ function ApptForm({ data, set, onSave, onCancel, isEdit, saving }) {
         <button onClick={onCancel} style={{background:'none',border:'none',color:'#555',cursor:'pointer',padding:'4px'}}><I.X /></button>
       </div>
 
-      {/* Name */}
+      {/* Name with autocomplete */}
       <div style={{marginBottom:'15px'}}>
         <label style={LBL}>שם לקוח *</label>
-        <input type="text" placeholder="הכנס שם..." value={data.name}
-          onChange={e=>chg('name',e.target.value)} style={IN} autoFocus={!isEdit} />
+        <NameInput value={data.name} onChange={v=>chg('name',v)} savedNames={savedNames} autoFocus={!isEdit} />
       </div>
 
       {/* Time */}
@@ -537,19 +593,52 @@ function ApptForm({ data, set, onSave, onCancel, isEdit, saving }) {
 /* ═══════════════════════════════════════════════════════════
    APP
    ═══════════════════════════════════════════════════════════ */
-const EMPTY = { name:'', time:'08:00', duration:20, service:'haircut', note:'' }; // ברירת מחדל: תספורת 20 דק'
+const EMPTY = { name:'', time:'08:00', duration:20, service:'haircut', note:'' };
 
 function App() {
   const [date,    setDate]    = useState(new Date());
   const [appts,   setAppts]   = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const [selected, setSelected] = useState(null); // viewed appt
+  const [selected, setSelected] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [editId,   setEditId]   = useState(null);
   const [showDel,  setShowDel]  = useState(false);
   const [saving,   setSaving]   = useState(false);
   const [form,     setForm]     = useState(EMPTY);
+
+  /* ── Names for autocomplete (localStorage + Firestore) ── */
+  const [savedNames, setSavedNames] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('barber_names') || '[]'); }
+    catch { return []; }
+  });
+
+  const addName = (name) => {
+    setSavedNames(prev => {
+      const updated = [name, ...prev.filter(n=>n!==name)].slice(0, 150);
+      localStorage.setItem('barber_names', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  /* Load all historical names from Firestore once on mount */
+  useEffect(() => {
+    if (DEMO_MODE) {
+      setSavedNames(prev => [...new Set([...prev,
+        'דוד לוי','מאיר כהן','רון אברהם','יוסי שפירא','אבי גולן','נתן פרץ'
+      ])]);
+      return;
+    }
+    db.collection('appointments').orderBy('createdAt','desc').limit(300).get()
+      .then(snap => {
+        const names = [...new Set(snap.docs.map(d=>d.data().name).filter(Boolean))];
+        setSavedNames(prev => {
+          const merged = [...new Set([...prev, ...names])];
+          localStorage.setItem('barber_names', JSON.stringify(merged));
+          return merged;
+        });
+      }).catch(()=>{});
+  }, []);
 
   /* ── Load appointments ── */
   useEffect(() => {
@@ -608,12 +697,15 @@ function App() {
           ? p.map(a=>a.id===editId?{...a,...data}:a)
           : [...p,{...data,id:'demo_'+Date.now()}]
         );
+        addName(data.name);
         setShowForm(false);
       } else if (editId) {
         await db.collection('appointments').doc(editId).update(data);
+        addName(data.name);
         setShowForm(false);
       } else {
         await db.collection('appointments').add({...data, createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+        addName(data.name);
         setShowForm(false);
       }
     } catch(e) { alert('שגיאה בשמירה: ' + e.message); }
@@ -713,7 +805,7 @@ function App() {
       </Sheet>
 
       <Sheet open={showForm} onClose={()=>setShowForm(false)}>
-        <ApptForm data={form} set={setForm} onSave={save} onCancel={()=>setShowForm(false)} isEdit={!!editId} saving={saving} />
+        <ApptForm data={form} set={setForm} onSave={save} onCancel={()=>setShowForm(false)} isEdit={!!editId} saving={saving} savedNames={savedNames} />
       </Sheet>
     </div>
   );
