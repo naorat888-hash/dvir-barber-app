@@ -544,7 +544,7 @@ function NameInput({ value, onChange, onSelect, savedNames, customerPrices, auto
   );
 }
 
-function ApptForm({ data, set, onSave, onCancel, isEdit, saving, savedNames, customerPrices, saveError, blockedSlots }) {
+function ApptForm({ data, set, onSave, onCancel, isEdit, saving, savedNames, customerPrices, saveError }) {
   const prices = customerPrices || {};
 
   const chg = (k,v) => {
@@ -591,13 +591,11 @@ function ApptForm({ data, set, onSave, onCancel, isEdit, saving, savedNames, cus
       <div style={{display:'flex',gap:'10px',marginBottom:'15px'}}>
         <div style={{flex:1}}>
           <label style={LBL}>שעת התור</label>
-          <select value={data.time} onChange={e=>chg('time',e.target.value)}
-            style={{...IN,cursor:'pointer',
-              backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B7280' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E\")",
-              backgroundRepeat:'no-repeat', backgroundPosition:'left 14px center', paddingLeft:'38px',
-            }}>
-            {SLOTS.filter(t => !blockedSlots?.has(t) || t === data.time).map(t=><option key={t} value={t}>{t}</option>)}
-          </select>
+          <input
+            type="time" value={data.time}
+            onChange={e=>chg('time',e.target.value)}
+            style={{...IN, cursor:'pointer', textAlign:'center'}}
+          />
         </div>
         <div style={{width:'110px'}}>
           <label style={LBL}>מחיר ₪</label>
@@ -998,7 +996,7 @@ function App() {
       </Sheet>
 
       <Sheet open={showForm} onClose={()=>{setShowForm(false);setSaveError(null);}}>
-        <ApptForm data={form} set={setForm} onSave={save} onCancel={()=>{setShowForm(false);setSaveError(null);}} isEdit={!!editId} saving={saving} savedNames={savedNames} customerPrices={customerPrices} saveError={saveError} blockedSlots={getBlockedSlots(appts, editId)} />
+        <ApptForm data={form} set={setForm} onSave={save} onCancel={()=>{setShowForm(false);setSaveError(null);}} isEdit={!!editId} saving={saving} savedNames={savedNames} customerPrices={customerPrices} saveError={saveError} />
       </Sheet>
     </div>
   );
