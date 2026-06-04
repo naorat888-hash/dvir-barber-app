@@ -281,21 +281,26 @@ const NAV_BTN = {
    STATS BAR
    ═══════════════════════════════════════════════════════════ */
 function StatsBar({ appts }) {
-  const mins = appts.reduce((s,a)=>s+(a.duration||0),0);
+  const mins    = appts.reduce((s,a)=>s+(a.duration||0),0);
+  const revenue = appts.reduce((s,a)=>s+(a.price||0),0);
   const h=Math.floor(mins/60), m=mins%60;
   const timeStr = mins===0 ? '—' : h>0 ? `${h}ש' ${m>0?m+"ד'":""}`.trim() : `${m} דק'`;
   return (
     <div style={{display:'flex',gap:'8px',padding:'10px 14px',borderBottom:'1px solid #141414'}}>
       {[
-        {label:'תורים היום',  val: appts.length, gold:true },
-        {label:'סה"כ זמן',    val: timeStr },
-      ].map(({label,val,gold})=>(
+        { label:'תורים היום', val: appts.length,              gold:true  },
+        { label:'סה"כ זמן',   val: timeStr                               },
+        { label:'הכנסות',     val: revenue>0 ? `₪${revenue}` : '—', green:true },
+      ].map(({label,val,gold,green})=>(
         <div key={label} style={{
           flex:1,background:'#141414',borderRadius:'10px',
-          padding:'10px 14px',display:'flex',justifyContent:'space-between',alignItems:'center',
+          padding:'10px 10px',display:'flex',flexDirection:'column',alignItems:'center',gap:'3px',
         }}>
-          <span style={{color:'#555',fontSize:'12px'}}>{label}</span>
-          <span style={{color:gold?'#CA8A04':'#E5E7EB',fontSize:gold?'22px':'16px',fontWeight:700}}>{val}</span>
+          <span style={{color:'#555',fontSize:'11px'}}>{label}</span>
+          <span style={{
+            color: gold?'#CA8A04':green?'#34D399':'#E5E7EB',
+            fontSize: gold?'20px':'15px', fontWeight:700,
+          }}>{val}</span>
         </div>
       ))}
     </div>
@@ -318,7 +323,10 @@ function ApptCard({ a, onClick }) {
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:'8px'}}>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontWeight:600,fontSize:'15px',marginBottom:'3px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div>
-          <div style={{color:'#9CA3AF',fontSize:'12px'}}>{a.time} – {end} · {a.duration} דק'</div>
+          <div style={{color:'#9CA3AF',fontSize:'12px',display:'flex',gap:'8px',alignItems:'center'}}>
+          <span>{a.time} – {end} · {a.duration} דק'</span>
+          {a.price ? <span style={{color:'#34D399',fontWeight:600}}>₪{a.price}</span> : null}
+        </div>
           {a.note && <div style={{color:'#6B7280',fontSize:'11px',marginTop:'3px',lineHeight:'1.4',overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{a.note}</div>}
         </div>
         <span style={{
@@ -374,8 +382,9 @@ function ApptDetail({ a, onEdit, onDelete, onClose }) {
         <button onClick={onClose} style={{background:'none',border:'none',color:'#555',cursor:'pointer',padding:'4px'}}><I.X /></button>
       </div>
       <div style={{fontSize:'23px',fontWeight:700,marginBottom:'6px'}}>{a.name}</div>
-      <div style={{color:'#9CA3AF',fontSize:'15px',marginBottom:a.note?'14px':'26px'}}>
-        {a.time} – {end} &nbsp;·&nbsp; {a.duration} דקות
+      <div style={{display:'flex',alignItems:'center',gap:'12px',marginBottom:a.note?'14px':'26px',flexWrap:'wrap'}}>
+        <span style={{color:'#9CA3AF',fontSize:'15px'}}>{a.time} – {end} · {a.duration} דקות</span>
+        {a.price ? <span style={{background:'rgba(52,211,153,.12)',color:'#34D399',fontWeight:700,fontSize:'16px',padding:'3px 12px',borderRadius:'8px'}}>₪{a.price}</span> : null}
       </div>
       {a.note && (
         <div style={{background:'#1a1a1a',borderRadius:'10px',padding:'12px 14px',
@@ -442,7 +451,7 @@ const IN = {
 const LBL = { color:'#6B7280', fontSize:'13px', fontWeight:500, marginBottom:'7px', display:'block' };
 
 /* ── Autocomplete name input ── */
-function NameInput({ value, onChange, savedNames, autoFocus }) {
+function NameInput({ value, onChange, onSelect, savedNames, customerPrices, autoFocus }) {
   const [sugg, setSugg] = useState([]);
   const [open, setOpen] = useState(false);
 
@@ -461,6 +470,11 @@ function NameInput({ value, onChange, savedNames, autoFocus }) {
     }
   };
 
+  const pick = name => {
+    onSelect(name, customerPrices[name] ?? '');
+    setOpen(false);
+  };
+
   return (
     <div style={{position:'relative'}}>
       <input
@@ -477,28 +491,38 @@ function NameInput({ value, onChange, savedNames, autoFocus }) {
           borderTop:'none', borderRadius:'0 0 12px 12px',
           overflow:'hidden', boxShadow:'0 8px 24px rgba(0,0,0,.5)',
         }}>
-          {sugg.map((name,i) => (
-            <div key={name}
-              onMouseDown={e=>{e.preventDefault(); onChange(name); setOpen(false);}}
-              onTouchStart={()=>{ onChange(name); setOpen(false); }}
-              style={{
-                padding:'13px 16px', cursor:'pointer', fontSize:'15px',
-                borderBottom: i<sugg.length-1 ? '1px solid #252525' : 'none',
-                display:'flex', alignItems:'center', gap:'10px',
-              }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#CA8A04" strokeWidth="2" strokeLinecap="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-              </svg>
-              <span>{name}</span>
-            </div>
-          ))}
+          {sugg.map((name,i) => {
+            const price = customerPrices[name];
+            return (
+              <div key={name}
+                onMouseDown={e=>{e.preventDefault(); pick(name);}}
+                onTouchStart={()=>pick(name)}
+                style={{
+                  padding:'12px 16px', cursor:'pointer',
+                  borderBottom: i<sugg.length-1 ? '1px solid #252525' : 'none',
+                  display:'flex', alignItems:'center', justifyContent:'space-between',
+                }}>
+                <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#CA8A04" strokeWidth="2" strokeLinecap="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                  </svg>
+                  <span style={{fontSize:'15px'}}>{name}</span>
+                </div>
+                {price !== undefined && (
+                  <span style={{color:'#CA8A04',fontSize:'13px',fontWeight:600}}>₪{price}</span>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
 
-function ApptForm({ data, set, onSave, onCancel, isEdit, saving, savedNames }) {
+function ApptForm({ data, set, onSave, onCancel, isEdit, saving, savedNames, customerPrices }) {
+  const prices = customerPrices || {};
+
   const chg = (k,v) => {
     if (k === 'service') {
       const s = SERVICES.find(s=>s.id===v);
@@ -507,6 +531,12 @@ function ApptForm({ data, set, onSave, onCancel, isEdit, saving, savedNames }) {
       set(p=>({...p,[k]:v}));
     }
   };
+
+  /* כשבוחרים שם מהרשימה — ממלא גם מחיר אוטומטית */
+  const handleSelect = (name, price) => {
+    set(p => ({ ...p, name, price: price !== '' ? String(price) : p.price }));
+  };
+
   return (
     <>
       <Handle />
@@ -518,19 +548,37 @@ function ApptForm({ data, set, onSave, onCancel, isEdit, saving, savedNames }) {
       {/* Name with autocomplete */}
       <div style={{marginBottom:'15px'}}>
         <label style={LBL}>שם לקוח *</label>
-        <NameInput value={data.name} onChange={v=>chg('name',v)} savedNames={savedNames} autoFocus={!isEdit} />
+        <NameInput
+          value={data.name}
+          onChange={v=>chg('name',v)}
+          onSelect={handleSelect}
+          savedNames={savedNames}
+          customerPrices={prices}
+          autoFocus={!isEdit}
+        />
       </div>
 
-      {/* Time */}
-      <div style={{marginBottom:'15px'}}>
-        <label style={LBL}>שעת התור</label>
-        <select value={data.time} onChange={e=>chg('time',e.target.value)}
-          style={{...IN,cursor:'pointer',
-            backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B7280' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E\")",
-            backgroundRepeat:'no-repeat', backgroundPosition:'left 14px center', paddingLeft:'38px',
-          }}>
-          {SLOTS.map(t=><option key={t} value={t}>{t}</option>)}
-        </select>
+      {/* Time + Price row */}
+      <div style={{display:'flex',gap:'10px',marginBottom:'15px'}}>
+        <div style={{flex:1}}>
+          <label style={LBL}>שעת התור</label>
+          <select value={data.time} onChange={e=>chg('time',e.target.value)}
+            style={{...IN,cursor:'pointer',
+              backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B7280' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E\")",
+              backgroundRepeat:'no-repeat', backgroundPosition:'left 14px center', paddingLeft:'38px',
+            }}>
+            {SLOTS.map(t=><option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <div style={{width:'110px'}}>
+          <label style={LBL}>מחיר ₪</label>
+          <input
+            type="number" inputMode="numeric" placeholder="0"
+            value={data.price}
+            onChange={e=>chg('price', e.target.value)}
+            style={{...IN, textAlign:'center'}}
+          />
+        </div>
       </div>
 
       {/* Duration */}
@@ -593,7 +641,7 @@ function ApptForm({ data, set, onSave, onCancel, isEdit, saving, savedNames }) {
 /* ═══════════════════════════════════════════════════════════
    APP
    ═══════════════════════════════════════════════════════════ */
-const EMPTY = { name:'', time:'08:00', duration:20, service:'haircut', note:'' };
+const EMPTY = { name:'', time:'08:00', duration:20, service:'haircut', note:'', price:'' };
 
 function App() {
   const [date,    setDate]    = useState(new Date());
@@ -611,11 +659,28 @@ function App() {
   /* זיכרון תורים לפי תאריך (מונע מחיקה בניווט בין ימים במצב הדגמה) */
   const demoStore = useRef({});
 
-  /* ── Names for autocomplete (localStorage + Firestore) ── */
+  /* ── Names for autocomplete ── */
   const [savedNames, setSavedNames] = useState(() => {
     try { return JSON.parse(localStorage.getItem('barber_names') || '[]'); }
     catch { return []; }
   });
+
+  /* ── מחירים לפי שם לקוח { 'דוד לוי': 60, ... } ── */
+  const [customerPrices, setCustomerPrices] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('barber_prices') || '{}'); }
+    catch { return {}; }
+  });
+
+  const savePrice = (name, price) => {
+    if (!name || price === '' || price === null) return;
+    const num = Number(price);
+    if (isNaN(num) || num <= 0) return;
+    setCustomerPrices(prev => {
+      const updated = { ...prev, [name]: num };
+      localStorage.setItem('barber_prices', JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   const addName = (name) => {
     setSavedNames(prev => {
@@ -701,7 +766,7 @@ function App() {
   /* ── Open edit ── */
   const openEdit = () => {
     setEditId(selected.id);
-    setForm({ name:selected.name, time:selected.time, duration:selected.duration, service:selected.service, note:selected.note||'' });
+    setForm({ name:selected.name, time:selected.time, duration:selected.duration, service:selected.service, note:selected.note||'', price: selected.price != null ? String(selected.price) : '' });
     setSelected(null);
     setShowForm(true);
   };
@@ -710,9 +775,11 @@ function App() {
   const save = async () => {
     if (!form.name.trim()) return;
     setSaving(true);
+    const priceNum = form.price !== '' ? Number(form.price) : null;
     const data = {
       date:toStr(date), name:form.name.trim(), time:form.time,
       duration:form.duration, service:form.service, note:form.note.trim(),
+      price: priceNum || null,
       updatedAt: DEMO_MODE ? new Date().toISOString() : firebase.firestore.FieldValue.serverTimestamp(),
     };
     try {
@@ -725,15 +792,15 @@ function App() {
           demoStore.current[ds] = [...demoStore.current[ds], {...data, id:'demo_'+Date.now()}];
         }
         setAppts([...demoStore.current[ds]]);
-        addName(data.name);
+        addName(data.name); savePrice(data.name, data.price);
         setShowForm(false);
       } else if (editId) {
         await db.collection('appointments').doc(editId).update(data);
-        addName(data.name);
+        addName(data.name); savePrice(data.name, data.price);
         setShowForm(false);
       } else {
         await db.collection('appointments').add({...data, createdAt:firebase.firestore.FieldValue.serverTimestamp()});
-        addName(data.name);
+        addName(data.name); savePrice(data.name, data.price);
         setShowForm(false);
       }
     } catch(e) { alert('שגיאה בשמירה: ' + e.message); }
@@ -844,7 +911,7 @@ function App() {
       </Sheet>
 
       <Sheet open={showForm} onClose={()=>setShowForm(false)}>
-        <ApptForm data={form} set={setForm} onSave={save} onCancel={()=>setShowForm(false)} isEdit={!!editId} saving={saving} savedNames={savedNames} />
+        <ApptForm data={form} set={setForm} onSave={save} onCancel={()=>setShowForm(false)} isEdit={!!editId} saving={saving} savedNames={savedNames} customerPrices={customerPrices} />
       </Sheet>
     </div>
   );
