@@ -98,13 +98,13 @@ const SERVICES = [
 const DURATIONS = [15, 20, 30, 40, 60];
 
 const SLOTS = [];
-for (let h=8; h<20; h++) {
+for (let h=8; h<23; h++) {
   SLOTS.push(`${String(h).padStart(2,'0')}:00`);
   SLOTS.push(`${String(h).padStart(2,'0')}:20`);
   SLOTS.push(`${String(h).padStart(2,'0')}:40`);
 }
 
-const HOURS = Array.from({length:12},(_,i)=>i+8);
+const HOURS = Array.from({length:15},(_,i)=>i+8);
 
 const HE_DAYS   = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
 const HE_MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
@@ -335,7 +335,7 @@ function StatsBar({ appts }) {
 /* ═══════════════════════════════════════════════════════════
    APPOINTMENT CARD
    ═══════════════════════════════════════════════════════════ */
-function ApptCard({ a, onClick }) {
+function ApptCard({ a, onClick, onTogglePaid }) {
   const s   = svc(a.service);
   const end = addMin(a.time, a.duration||30);
   return (
@@ -349,9 +349,22 @@ function ApptCard({ a, onClick }) {
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontWeight:600,fontSize:'15px',marginBottom:'3px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.name}</div>
           <div style={{color:'#9CA3AF',fontSize:'12px',display:'flex',gap:'8px',alignItems:'center'}}>
-          <span>{a.time} – {end} · {a.duration} דק'</span>
-          {a.price ? <span style={{color:'#34D399',fontWeight:600}}>₪{a.price}</span> : null}
-        </div>
+            <span>{a.time} – {end} · {a.duration} דק'</span>
+            {a.price ? <span style={{color:'#34D399',fontWeight:600}}>₪{a.price}</span> : null}
+            <button
+              onClick={e=>{ e.stopPropagation(); onTogglePaid(a); }}
+              title={a.paid ? 'שולם' : 'לא שולם'}
+              style={{
+                background: a.paid ? 'rgba(52,211,153,.18)' : 'transparent',
+                border: `1.5px solid ${a.paid ? '#34D399' : '#3a3a3a'}`,
+                borderRadius:'4px', width:'18px', height:'18px',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                cursor:'pointer', flexShrink:0, padding:0, transition:'all .15s',
+              }}
+            >
+              {a.paid && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="3.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
+            </button>
+          </div>
           {a.note && <div style={{color:'#6B7280',fontSize:'11px',marginTop:'3px',lineHeight:'1.4',overflow:'hidden',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{a.note}</div>}
         </div>
         <span style={{
@@ -367,7 +380,7 @@ function ApptCard({ a, onClick }) {
 /* ═══════════════════════════════════════════════════════════
    HOUR ROW
    ═══════════════════════════════════════════════════════════ */
-function HourRow({ hour, appts, onApptClick, onAdd }) {
+function HourRow({ hour, appts, onApptClick, onAdd, onTogglePaid }) {
   const label = `${String(hour).padStart(2,'0')}:00`;
   const list  = appts.filter(a=>parseInt(a.time.split(':')[0])===hour)
                      .sort((a,b)=>a.time.localeCompare(b.time));
@@ -379,7 +392,7 @@ function HourRow({ hour, appts, onApptClick, onAdd }) {
       </div>
       {/* Content */}
       <div style={{flex:1,borderTop:'1px solid #181818',paddingTop:'8px',paddingBottom:'8px',minHeight:'48px'}}>
-        {list.map(a=><ApptCard key={a.id} a={a} onClick={onApptClick}/>)}
+        {list.map(a=><ApptCard key={a.id} a={a} onClick={onApptClick} onTogglePaid={onTogglePaid}/>)}
         <div className="hour-tap" onClick={()=>onAdd(label)}
           style={{height:'30px',borderRadius:'6px',display:'flex',alignItems:'center',
             paddingRight:'8px',cursor:'pointer',transition:'background .15s',
@@ -872,6 +885,19 @@ function App() {
     setSaving(false);
   };
 
+  /* ── Toggle paid ── */
+  const togglePaid = async (appt) => {
+    const newPaid = !appt.paid;
+    setAppts(prev => prev.map(a => a.id === appt.id ? {...a, paid: newPaid} : a));
+    if (!DEMO_MODE && db) {
+      try {
+        await db.collection('appointments').doc(appt.id).update({ paid: newPaid });
+      } catch(e) {
+        setAppts(prev => prev.map(a => a.id === appt.id ? {...a, paid: appt.paid} : a));
+      }
+    }
+  };
+
   /* ── Delete ── */
   const del = async () => {
     if (!selected) return;
@@ -964,7 +990,8 @@ function App() {
             {HOURS.map(h=>(
               <HourRow key={h} hour={h} appts={appts}
                 onApptClick={setSelected}
-                onAdd={time=>openAdd(time)} />
+                onAdd={time=>openAdd(time)}
+                onTogglePaid={togglePaid} />
             ))}
           </>
         )}
